@@ -19,6 +19,18 @@ simulator = Aer.get_backend('aer_simulator')
 
 # Task a
 def apply_gates_and_measure(initial_state = '0', gate_type='X', measure=False, shots=1024):
+    """
+    Apply a specified quantum gate to an initial state and optionally measure the result.
+
+    Parameters:
+    initial_state (str): The initial state of the qubit, either '0' or '1'. Default is '0'.
+    gate_type (str): The type of quantum gate to apply. Options are 'H', 'S', 'X', 'Y', and 'Z'. Default is 'X'.
+    measure (bool): Whether to measure the state after applying the gate. Default is False.
+    shots (int): The number of measurements to perform if measure is True. Default is 1024.
+
+    Returns:
+    np.array or dict: The statevector after applying the gate, or the measurement results if measure is True.
+    """
     qc = QuantumCircuit(1, 1 if measure else 0)
 
     if initial_state == '1':
@@ -58,6 +70,17 @@ print("Measurement results after applying H gate:", apply_gates_and_measure('H',
 
 
 def bell_state_and_gates(bell_state_type='Phi+', measure=False, shots=1024):
+    """
+    Prepare a specified Bell state and optionally measure the result.
+
+    Parameters:
+    bell_state_type (str): The type of Bell state to prepare. Options are 'Phi+', 'Phi-', 'Psi+', and 'Psi-'. Default is 'Phi+'.
+    measure (bool): Whether to measure the state after preparing the Bell state. Default is False.
+    shots (int): The number of measurements to perform if measure is True. Default is 1024.
+
+    Returns:
+    np.array or dict: The statevector of the Bell state, or the measurement results if measure is True.
+    """
     qc = QuantumCircuit(2, 2 if measure else 0)
 
     if bell_state_type in ['Phi+', 'Phi-', 'Psi+', 'Psi-']:

@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 
 #Task b 
 
-#The pauli matrices, using numpy arrays as they are faster qiskit's Pauli class
 sigma_x = np.array([[0, 1], [1, 0]])
 sigma_z = np.array([[1, 0], [0, -1]])
 I = np.eye(2)
@@ -31,8 +30,15 @@ HI = c * I + omega_z * sigma_z + omega_x * sigma_x
 H = H0 + (lambda_val * HI)
 
 
-# Calculating and printing eigenvectors at critical lambda values
-def eigvec_crit_lamb():
+def eVecs_crit_lamb():
+    """
+    Compute and print the eigenvalues and eigenvectors of a Hamiltonian at critical lambda values.
+
+    The function calculates the Hamiltonian for each critical lambda value (0, 2/3, 1), computes its eigenvalues and eigenvectors, and prints them.
+
+    Returns:
+    None
+    """
     critical_lambdas = [0, 2/3, 1]
     for lambda_val in critical_lambdas:
         H = H0 + lambda_val * HI
@@ -42,7 +48,7 @@ def eigvec_crit_lamb():
             print(f"Eigenvalue {eigenvalues[i]}: Eigenvector {eigenvectors[:, i]}")
         print("\n")
 
-eigvec_crit_lamb()
+eVecs_crit_lamb()
 
 
 #solving the eigenvalue problem

@@ -1,20 +1,12 @@
-from qiskit_aer import Aer
-from qiskit.circuit import ParameterVector
-from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
 from qiskit.quantum_info.operators import Operator, Pauli
+from qiskit.quantum_info import SparsePauliOp
+from qiskit_algorithms import VQE, NumPyMinimumEigensolver
+from qiskit_algorithms.optimizers import SPSA
+from qiskit.circuit.library import TwoLocal
+from qiskit_aer.primitives import Estimator as AerEstimator
+import matplotlib.pyplot as plt
 import numpy as np
-from scipy.optimize import minimize
 
-
-# Define the quantum registers and classical registers
-qr_vqe = QuantumRegister(2, 'qreg')
-cr_vqe = ClassicalRegister(2, 'creg')
-
-# Create a quantum circuit
-qc_vqe = QuantumCircuit(qr_vqe, cr_vqe)
-
-# Define the quantum backend
-simulator = Aer.get_backend('aer_simulator')
 
 # Define the Hamiltonian terms
 E_1 = 0.
@@ -34,6 +26,11 @@ Y = Operator(Pauli('Y')).data
 Z = Operator(Pauli('Z')).data
 I = Operator(Pauli('I')).data
 
+H0 = eps*I + sgm*Z
+H1 = c*I + omg_z*Z + omg_x*X
+num_lambdas_ = 50
+lambdas_ = np.linspace(0, 1, num=num_lambdas_)
+
 # Define the Hamiltonian terms
 h11 = [c + eps, [0,1], [I]]
 h12 = [sgm, [0], [Z]]
@@ -42,136 +39,82 @@ h22 = [omg_x, [0], [X]]
 H = [h11, h12, h21, h22]
 
 
-# Define the ansatz circuit
-def ansatz(theta, n_qubits):
+def eigsys(H0, H1, lambdas_):
     """
-    Construct a quantum circuit representing the ansatz.
-
-    Args:
-        theta (list): A list of parameters for the ansatz.
-        n_qubits (int): The number of qubits in the circuit.
-
-    Returns:
-        QuantumCircuit: The constructed quantum circuit.
-    """
-    qr = QuantumRegister(n_qubits)
-    qc = QuantumCircuit(qr)
-    parameters = ParameterVector('theta', length=len(theta))
-
-    for i in range(n_qubits):
-        qc.ry(parameters[i], qr[i])
-    for i in range(n_qubits - 1):
-        qc.cx(qr[i], qr[i+1])
-    
-    param_dict = {parameters[i]: theta_val for i, theta_val in enumerate(theta)}
-    qc = qc.assign_parameters(param_dict)
-    
-    return qc
-
-# plot of the ansatz circuit.
-cc = ansatz([0, 1], 2)
-cc.draw(output='mpl', style='default', filename='/home/odinjo/Project_1/QML_project_1/figures/figs_part_c/quantum_circuit_ansatz.pdf')
-
-
-# Define a function to perform basis change
-def basis_change(h_i, n_qubits):
-    qr = QuantumRegister(n_qubits)
-    qc = QuantumCircuit(qr)
-    
-    # Loop over each qubit and corresponding operator
-    for qubit, operator in zip(h_i[1], h_i[2]):
-        # Apply Hadamard gate if the operator is 'X'
-        if np.any(operator == 'X'):
-            qc.h(qr[qubit])
-    
-    return qc
-
-# Define a function to calculate the energy
-def energy(theta):
-    """
-    Calculate the expectation value of a Hamiltonian H for a given ansatz and set of parameters.
-
-    This function constructs a quantum circuit for each term in the Hamiltonian using the provided ansatz and parameters.
-    It then measures each circuit and calculates the expectation value of the corresponding Hamiltonian term.
-    The expectation values are then summed to give the total energy.
+    Compute the eigenvalues and eigenvectors of a Hamiltonian for a range of lambda values.
 
     Parameters:
-    theta (numpy.ndarray): An array of parameters for the ansatz.
+    H0 (np.array): The base Hamiltonian.
+    H1 (np.array): The Hamiltonian to be added for each lambda.
+    lambdas_ (np.array): The range of lambda values.
 
     Returns:
-    float: The expectation value of the Hamiltonian.
-
-    Note:
-    The Hamiltonian H and the ansatz function must be defined in the same scope as this function.
-    The ansatz function should take two arguments: a list or array of parameters, and the number of qubits.
+    tuple: The eigenvalues and eigenvectors of the Hamiltonian for each lambda.
     """
-    n_qubits = 2
-    qreg = QuantumRegister(n_qubits)
-    qc_base = QuantumCircuit(qreg).compose(ansatz(theta, n_qubits))
-    qc_list = []
-    
-    for h_i in H:
 
-        basis_change_circuit = basis_change(h_i, n_qubits)
-        qc = qc_base.compose(basis_change_circuit)
-        
-        creg = ClassicalRegister(len(h_i[1]))
-        qc.add_register(creg)
-        qc.measure(qreg[h_i[1]], creg)
-        qc_list.append(qc)
-    
-    shots = 1000
-    results = simulator.run(qc_list, shots=shots).result()
-    
-    # Calculate the expectation value of the Hamiltonian
-    E = np.array([sum((-1)**int(bit) * count for bit, count in results.get_counts(i).items()) * h_i[0] / shots for i, h_i in enumerate(H)])
-    
-    return E.sum()
+    Hamil = np.array([H0 + lbd * H1 for lbd in lambdas_])
+    eVals = np.array([np.linalg.eigvalsh(H) for H in Hamil])
+    eVecs = np.array([np.linalg.eigh(H)[1].flatten() for H in Hamil])
+    return eVals, eVecs
 
+eVals, eVecs = eigsys(H0, H1, lambdas_)
 
-# Calculate and print the energy
-theta = np.random.randn(2)
-print("This is the energy:", energy(theta))
+npMES = NumPyMinimumEigensolver()
+lambd_num = np.linspace(0, 1, num=10)
 
-# Optimize the energy using the Powell method
-res = minimize(energy, theta, method='Powell', tol=1e-12)
+def npEigs(lambd_num):
+    """
+    Compute the minimum eigenvalue of a Hamiltonian for a range of lambda values using NumPy.
 
-# Calculate and print the optimized energy
-print("Optimized enenrgy:", energy(res.x))
+    Parameters:
+    lambd_num (np.array): The range of lambda values.
 
+    Returns:
+    list: The minimum eigenvalue of the Hamiltonian for each lambda.
+    """
 
-def compute_gradient(theta, epsilon=1e-2):
-    gradient = np.zeros_like(theta)
-    for i in range(len(theta)):
-        theta_plus = theta.copy()
-        theta_minus = theta.copy()
-        theta_plus[i] += epsilon
-        theta_minus[i] -= epsilon
-        gradient[i] = (energy(theta_plus) - energy(theta_minus)) / (2 * epsilon)
-    return gradient
+    npEigs = [npMES.compute_minimum_eigenvalue(
+        SparsePauliOp.from_list([("I", eps + lbd*c), ("X", lbd*omg_x), ("Z", sgm + lbd*omg_z)])
+    ).eigenvalue.real for lbd in lambd_num]
+    return npEigs
 
-def gradient_descent(theta, learning_rate, num_iterations):
-    min_theta = np.copy(theta)
-    min_eval = energy(theta)  # Use your energy function to initialize min_eval
-    for iteration in range(num_iterations):
-        gradient = compute_gradient(theta)
-        theta -= learning_rate * gradient
-        current_energy = energy(theta)  # Use your energy function to calculate current energy
-        if current_energy < min_eval:
-            min_theta = np.copy(theta)
-            min_eval = current_energy
-        # Optional: Print progress every 50 iterations
-        if iteration % 50 == 0:
-            print(f"Iteration: {iteration}, Energy: {current_energy}")
-        
-    return min_theta, min_eval
+npEigsComp = npEigs(lambd_num)
 
-theta = np.array([0.1, 0.1])
-learning_rate = 0.12
-num_iterations = 1000
+# VQE setup and execution
+nEst = AerEstimator(run_options={"shots": 1024})
+iterations = 125
+ansatz = TwoLocal(1, rotation_blocks=["rx", "ry"], reps=0)
 
-arg_best, arg_val = gradient_descent(theta, learning_rate, num_iterations)
-print(f"The lowest energy is: {arg_val}, with theta values of {arg_best}")
+def vqe(lambdas_, estimator, ansatz):
+    """
+    Compute the minimum eigenvalue of a Hamiltonian for a range of lambda values using VQE.
 
+    Parameters:
+    lambdas_ (np.array): The range of lambda values.
+    estimator (AerEstimator): The estimator to use in the VQE algorithm.
+    ansatz (TwoLocal): The ansatz to use in the VQE algorithm.
 
+    Returns:
+    list: The minimum eigenvalue of the Hamiltonian for each lambda.
+    """
 
+    optimizer = SPSA(maxiter=iterations)
+    vqe = VQE(estimator, ansatz, optimizer=optimizer)
+    results = [vqe.compute_minimum_eigenvalue(
+        SparsePauliOp.from_list([("I", eps + lbd*c), ("X", lbd*omg_x), ("Z", sgm + lbd*omg_z)])
+    ).eigenvalue.real for lbd in lambdas_]
+    return results
+
+VQERes = vqe(lambd_num, nEst, ansatz)
+
+fig, ax = plt.subplots(figsize=(10, 8))
+ax.plot(lambdas_, eVals[:, 0], label=r'$\epsilon_0$')
+ax.plot(lambdas_, eVals[:, 1], label=r'$\epsilon_1$')
+ax.plot(lambd_num, npEigsComp, 'o', label='NumPyMinimumEigensolver')
+ax.plot(lambd_num, VQERes, '--', label='Qiskit_VQE')
+ax.set_xlabel(r'$\lambda$')
+ax.set_ylabel('E')
+ax.legend()
+plt.grid(True)
+fig.tight_layout()
+fig.savefig('/home/odinjo/Project_1/QML_project_1/figures/figs_part_c/eigvals_qiskitVSnumpy.png', format='png')
