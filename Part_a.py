@@ -5,11 +5,9 @@ import matplotlib.pyplot as plt
 
 import qiskit as qk
 from qiskit_aer import Aer
-from qiskit.visualization import plot_histogram, plot_bloch_vector, plot_state_city, plot_bloch_multivector, plot_state_qsphere
+from qiskit.visualization import plot_histogram, plot_state_qsphere
 from qiskit.quantum_info import Statevector
-from qiskit.quantum_info.operators import Operator, Pauli
-from qiskit.circuit import QuantumCircuit, Parameter, QuantumRegister, ClassicalRegister
-from qiskit import transpile
+from qiskit.circuit import QuantumCircuit, QuantumRegister, ClassicalRegister
 
 # Defining the quantum backends
 state_simulator = Aer.get_backend('statevector_simulator')
