@@ -22,7 +22,7 @@ To run a script, use the following command:
 
 ```sh
 python3 Part_a.py
-
+```
 Replace Part_a.py with the name of the script you want to run.
 
 Requirements:
@@ -32,4 +32,4 @@ Qiskit
 NumPy
 Matplotlib
 You can install these libraries using pip:
-``pip install qiskit numpy matplotlib``
+```pip install qiskit numpy matplotlib```
